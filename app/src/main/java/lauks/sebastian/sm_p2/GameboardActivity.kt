@@ -111,7 +111,12 @@ class GameboardActivity : AppCompatActivity() {
                             game.playerOneWon()
                             startNewGame()
                         }
-                        MoveOutput.DRAW -> imageView.setBackgroundColor(R.drawable.circle)
+                        MoveOutput.DRAW -> {
+                            imageView.setBackgroundColor(R.drawable.cross)
+                            Toast.makeText(this, "Remis", Toast.LENGTH_SHORT).show()
+                            game.draw()
+                            startNewGame()
+                        }
                     }
 
 

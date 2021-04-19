@@ -34,8 +34,8 @@ class Game(val singlePlayer: Boolean) {
         isGamePlaying = false
     }
     fun draw(){
-        scorePlayerOne.value = scorePlayerOne.value?: 0 + POINTS_FOR_DRAW
-        scorePlayerTwo.value = scorePlayerTwo.value?: 0 + POINTS_FOR_DRAW
+        scorePlayerOne.value = (scorePlayerOne.value?: 0) + POINTS_FOR_DRAW
+        scorePlayerTwo.value = (scorePlayerTwo.value?: 0) + POINTS_FOR_DRAW
         isGamePlaying = false
     }
 

@@ -147,7 +147,7 @@ class Gameboard {
 
 
         forCounter = 0
-        for (i in (min(lastX, lastY)+1) until BOARD_SIZE - difference){
+        for (i in (min(lastX, lastY)+1) until BOARD_SIZE){
 //            if(xIsHigher){
 //                if(board[BOARD_SIZE - 1 - i][i+difference] != checkingSign) break
 //                counter++
