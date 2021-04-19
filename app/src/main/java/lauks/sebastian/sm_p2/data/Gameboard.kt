@@ -11,7 +11,7 @@ class Gameboard {
     val TAG ="Gameboard"
     private val BOARD_SIZE = 10
     private val SIGNS_TO_WIN = 5
-    private val board: MutableList<MutableList<Sign>> = mutableListOf()
+    val board: MutableList<MutableList<Sign>> = mutableListOf()
 
     init {
         for (i in 0 until BOARD_SIZE) {
@@ -41,12 +41,12 @@ class Gameboard {
             if(board[x][y] == Sign.NOTHING){
                 board[x][y] = sign
                 if(checkIfWon(sign, x, y)){
-                    return if(sign == Sign.CIRCLE) MoveOutput.CROSS_WIN else MoveOutput.CIRCLE_WIN
+                    return if(sign == Sign.CIRCLE) MoveOutput.CIRCLE_WIN else MoveOutput.CROSS_WIN
                 }else{
                     if (countSigns(Sign.NOTHING) == 0) {
                         return MoveOutput.DRAW
                     }
-                    return if(sign == Sign.CROSS) MoveOutput.CIRCLE_MOVED else MoveOutput.CROSS_MOVED
+                    return if(sign == Sign.CROSS) MoveOutput.CROSS_MOVED else MoveOutput.CIRCLE_MOVED
                 }
             }else{
                 return MoveOutput.DISALLOWED_HERE
