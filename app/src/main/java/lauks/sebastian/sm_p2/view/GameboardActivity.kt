@@ -50,12 +50,12 @@ class GameboardActivity : AppCompatActivity() {
 
 
         game = gameViewModel.getGame()
-        if (!game.isGamePlaying) game.start()
         if(gameViewModel.getClosedGame()){
             gameViewModel.setClosedGame(false)
-            game.scorePlayerOne.value = 0
-            game.scorePlayerTwo.value = 0
+            game = Game()
         }
+        if (!game.isGamePlaying) game.start()
+
 
         game.scorePlayerOne.observe(this, Observer {
             tvScorePlayerOne.text = it?.toString() ?: "0"

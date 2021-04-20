@@ -6,7 +6,7 @@ import java.lang.Integer.max
 import java.lang.Integer.min
 import kotlin.math.log
 
-class Gameboard() {
+class Gameboard {
 
     val TAG ="Gameboard"
     val BOARD_SIZE = 10
@@ -60,7 +60,7 @@ class Gameboard() {
 
         val oppositeSign = if (checkingSign == Sign.CROSS) Sign.CIRCLE else Sign.CROSS
 
-        Log.d(TAG,"Clicked: $lastX, $lastY")
+//        Log.d(TAG,"Clicked: $lastX, $lastY")
 
         var counter = 0
         for(i in lastX + 1 until BOARD_SIZE){
