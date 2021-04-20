@@ -3,7 +3,7 @@ package lauks.sebastian.sm_p2.data
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 
-class Game(val singlePlayer: Boolean) {
+class Game{
 
     val POINTS_FOR_WIN = 3
     val POINTS_FOR_DRAW = 1

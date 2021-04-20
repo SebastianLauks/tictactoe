@@ -1,25 +1,26 @@
-package lauks.sebastian.sm_p2
+package lauks.sebastian.sm_p2.view
 
-import android.graphics.Color
+import android.app.Activity
+import android.content.Context
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.text.Layout
 import android.util.DisplayMetrics
 import android.util.Log
-import android.view.ViewGroup
 import android.widget.*
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import kotlinx.android.synthetic.main.activity_gameboard.*
+import lauks.sebastian.sm_p2.R
 import lauks.sebastian.sm_p2.data.Game
-import lauks.sebastian.sm_p2.data.Gameboard
 import lauks.sebastian.sm_p2.data.MoveOutput
 import lauks.sebastian.sm_p2.data.Sign
 import lauks.sebastian.sm_p2.utils.CustomDialogGenerator
 import lauks.sebastian.sm_p2.viewmodel.GameViewModel
 import java.lang.Integer.min
+import kotlin.random.Random
 
 class GameboardActivity : AppCompatActivity() {
+
 
     val TAG = "GameboardActivity"
     lateinit var game: Game
@@ -37,14 +38,24 @@ class GameboardActivity : AppCompatActivity() {
         mutableListOf<ImageView>()
         )
 
+    private var singlePlayer: Boolean = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_gameboard)
 
         gameViewModel = ViewModelProvider(this).get(GameViewModel::class.java)
 
+        singlePlayer = intent.extras?.get("singlePlayer") as Boolean
+
+
         game = gameViewModel.getGame()
         if (!game.isGamePlaying) game.start()
+        if(gameViewModel.getClosedGame()){
+            gameViewModel.setClosedGame(false)
+            game.scorePlayerOne.value = 0
+            game.scorePlayerTwo.value = 0
+        }
 
         game.scorePlayerOne.observe(this, Observer {
             tvScorePlayerOne.text = it?.toString() ?: "0"
@@ -58,9 +69,46 @@ class GameboardActivity : AppCompatActivity() {
         updateLayout()
     }
 
+
     override fun onStop() {
-        super.onStop()
         gameViewModel.saveGame(game)
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        if(singlePlayer){
+            val score = game.scorePlayerOne.value ?: 0
+
+            val sharedPreferences = getSharedPreferences("scores", Context.MODE_PRIVATE)
+            if(sharedPreferences != null){
+                val score1 = sharedPreferences.getInt("score1", 0)
+                val score2 = sharedPreferences.getInt("score2", 0)
+                val score3 = sharedPreferences.getInt("score3", 0)
+                val score4 = sharedPreferences.getInt("score4", 0)
+                val score5 = sharedPreferences.getInt("score5", 0)
+
+                val scores = mutableListOf<Int>(score1, score2, score3, score4, score5, score)
+                scores.sortDescending()
+
+                with(sharedPreferences.edit()){
+                    putInt("score1", scores[0])
+                    putInt("score2", scores[1])
+                    putInt("score3", scores[2])
+                    putInt("score4", scores[3])
+                    putInt("score5", scores[4])
+                    apply()
+                }
+
+            }
+        }
+        super.onDestroy()
+    }
+
+    override fun onBackPressed() {
+        CustomDialogGenerator.createCustomDialog(this, "Czy chcesz wyjść z gry?", "Tak", "Nie"){
+            gameViewModel.setClosedGame(true)
+            super.onBackPressed()
+        }
     }
 
     private fun createLayouts() {
@@ -96,30 +144,7 @@ class GameboardActivity : AppCompatActivity() {
                 imageView.setOnClickListener {
                     val moveOutput = game.currentGameboard.move(i, j)
                     Log.d(TAG, moveOutput.toString())
-                    when (moveOutput) {
-                        MoveOutput.CROSS_MOVED -> imageView.setImageResource(R.drawable.cross)
-                        MoveOutput.CIRCLE_MOVED -> imageView.setImageResource(R.drawable.circle)
-                        MoveOutput.CROSS_WIN -> {
-                            imageView.setImageResource(R.drawable.cross)
-                            Toast.makeText(this, "Krzyżyk wygrywa", Toast.LENGTH_SHORT).show()
-                            game.playerTwoWon()
-                            startNewGame()
-                        }
-                        MoveOutput.CIRCLE_WIN -> {
-                            imageView.setImageResource(R.drawable.circle)
-                            Toast.makeText(this, "Kółko wygrywa", Toast.LENGTH_SHORT).show()
-                            game.playerOneWon()
-                            startNewGame()
-                        }
-                        MoveOutput.DRAW -> {
-                            imageView.setBackgroundColor(R.drawable.cross)
-                            Toast.makeText(this, "Remis", Toast.LENGTH_SHORT).show()
-                            game.draw()
-                            startNewGame()
-                        }
-                    }
-
-
+                    handleOutput(moveOutput, imageView)
                 }
                 layoutBoard[i].add(imageView)
                 tableRow.addView(imageView)
@@ -134,6 +159,48 @@ class GameboardActivity : AppCompatActivity() {
             )
         }
 
+    }
+
+    private fun handleOutput(moveOutput: MoveOutput, imageView: ImageView){
+        when (moveOutput) {
+            MoveOutput.CROSS_MOVED -> {
+                imageView.setImageResource(R.drawable.cross)}
+            MoveOutput.CIRCLE_MOVED -> {
+                imageView.setImageResource(R.drawable.circle)
+                if(singlePlayer){
+                    do {
+                    val x = Random.nextInt(0, game.currentGameboard.BOARD_SIZE - 1)
+                    val y = Random.nextInt(0, game.currentGameboard.BOARD_SIZE - 1)
+                        val moveOut = game.currentGameboard.move(x, y)
+                        Log.d(TAG,"Bot moved: $moveOut")
+                        if(moveOut != MoveOutput.DISALLOWED_HERE)
+                            handleOutput(moveOut, layoutBoard[x][y])
+                    }while (moveOut == MoveOutput.DISALLOWED_HERE)
+                }
+
+            }
+            MoveOutput.CROSS_WIN -> {
+                imageView.setImageResource(R.drawable.cross)
+                Toast.makeText(this, "Krzyżyk wygrywa", Toast.LENGTH_SHORT).show()
+                game.playerTwoWon()
+                startNewGame()
+            }
+            MoveOutput.CIRCLE_WIN -> {
+                imageView.setImageResource(R.drawable.circle)
+                Toast.makeText(this, "Kółko wygrywa", Toast.LENGTH_SHORT).show()
+                game.playerOneWon()
+                startNewGame()
+            }
+            MoveOutput.DRAW -> {
+                imageView.setBackgroundColor(R.drawable.cross)
+                Toast.makeText(this, "Remis", Toast.LENGTH_SHORT).show()
+                game.draw()
+                startNewGame()
+            }
+            else -> {
+
+            }
+        }
     }
 
     private fun startNewGame(){

@@ -8,6 +8,13 @@ import lauks.sebastian.sm_p2.repository.GameRepository
 class GameViewModel: ViewModel() {
     private val gameRepository = GameRepository.getInstance()
 
+
+    fun setClosedGame(boolean: Boolean) {
+        gameRepository.closedGame = boolean
+    }
+
+    fun getClosedGame() = gameRepository.closedGame
+
     fun getBoard() = gameRepository.getBoard()
     fun saveBoard(board: MutableList<MutableList<Sign>>) = gameRepository.saveBoard(board)
 

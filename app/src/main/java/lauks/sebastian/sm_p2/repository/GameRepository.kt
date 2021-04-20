@@ -7,7 +7,9 @@ class GameRepository private constructor(){
 
     private var board = mutableListOf<MutableList<Sign>>()
 
-    private var game = Game(false)
+    private var game = Game()
+
+    var closedGame = false
 
     fun getGame() = game
 

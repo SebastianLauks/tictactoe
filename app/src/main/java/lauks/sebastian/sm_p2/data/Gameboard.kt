@@ -6,11 +6,11 @@ import java.lang.Integer.max
 import java.lang.Integer.min
 import kotlin.math.log
 
-class Gameboard {
+class Gameboard() {
 
     val TAG ="Gameboard"
-    private val BOARD_SIZE = 10
-    private val SIGNS_TO_WIN = 5
+    val BOARD_SIZE = 10
+    val SIGNS_TO_WIN = 5
     val board: MutableList<MutableList<Sign>> = mutableListOf()
 
     init {
