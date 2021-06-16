@@ -9,13 +9,16 @@ import android.util.Log
 import android.widget.*
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import kotlinx.android.synthetic.main.activity_gameboard.*
+import kotlinx.coroutines.launch
 import lauks.sebastian.sm_p2.R
 import lauks.sebastian.sm_p2.data.Game
 import lauks.sebastian.sm_p2.data.MoveOutput
 import lauks.sebastian.sm_p2.data.Sign
 import lauks.sebastian.sm_p2.utils.CustomDialogGenerator
 import lauks.sebastian.sm_p2.viewmodel.GameViewModel
+import lauks.sebastian.sm_p2.viewmodel.OnlineGameViewModel
 import java.lang.Integer.min
 import kotlin.random.Random
 
@@ -25,6 +28,10 @@ class GameboardActivity : AppCompatActivity() {
     val TAG = "GameboardActivity"
     lateinit var game: Game
     private lateinit var gameViewModel: GameViewModel
+    private lateinit var onlineGameViewModel: OnlineGameViewModel
+    private var createdLayouts = false
+    private var observingScores = false
+
     private var layoutBoard = mutableListOf<MutableList<ImageView>>(
         mutableListOf<ImageView>(),
         mutableListOf<ImageView>(),
@@ -36,37 +43,68 @@ class GameboardActivity : AppCompatActivity() {
         mutableListOf<ImageView>(),
         mutableListOf<ImageView>(),
         mutableListOf<ImageView>()
-        )
+    )
 
     private var singlePlayer: Boolean = false
+    private var onlineGame: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_gameboard)
 
         gameViewModel = ViewModelProvider(this).get(GameViewModel::class.java)
+        onlineGameViewModel = ViewModelProvider(this).get(OnlineGameViewModel::class.java)
 
-        singlePlayer = intent.extras?.get("singlePlayer") as Boolean
+        singlePlayer = (intent.extras?.get("singlePlayer") ?: false) as Boolean
+        onlineGame = (intent.extras?.get("onlineGame")?: false) as Boolean
+
+        Log.d(TAG,onlineGame.toString())
+        if (!onlineGame) {
+            game = gameViewModel.getGame()
+            if (gameViewModel.getClosedGame()) {
+                gameViewModel.setClosedGame(false)
+                game = Game()
+            }
+            if (!game.isGamePlaying) game.start()
+
+            observeScores()
+
+            createLayouts()
+            updateLayout()
+        }else {
+
+            onlineGameViewModel.getGamesWithOnePlayer()
+            onlineGameViewModel.gamesWithOnePlayer().observe(this, Observer {
+                if(it.isNullOrEmpty()) {
+                    Log.d(TAG,"HERE")
+                    onlineGameViewModel.saveGame(Game())
+                    onlineGameViewModel.myPlayerNumber = 1
+                }else {
+                    Log.d(TAG,"HERE2")
+                    val game = it.first()
+                    onlineGameViewModel.myPlayerNumber = 2
+                    game.areTwoPlayers = true
+                    onlineGameViewModel.observeGame(game.id)
+                }
+            })
+
+            onlineGameViewModel.getGameLD().observe(this, Observer {
+                if(it != null){
+                    game = it
+                    tvScorePlayerOne.text = it.scorePlayerOne.value.toString()
+                    tvScorePlayerTwo.text = it.scorePlayerTwo.value.toString()
+                    if(!createdLayouts) {
+                        createLayouts()
+                        createdLayouts = true
+                    }
+                    updateLayout()
 
 
-        game = gameViewModel.getGame()
-        if(gameViewModel.getClosedGame()){
-            gameViewModel.setClosedGame(false)
-            game = Game()
+                }
+            })
+
+
         }
-        if (!game.isGamePlaying) game.start()
-
-
-        game.scorePlayerOne.observe(this, Observer {
-            tvScorePlayerOne.text = it?.toString() ?: "0"
-        })
-
-        game.scorePlayerTwo.observe(this, Observer {
-            tvScorePlayerTwo.text = it?.toString() ?: "0"
-        })
-
-        createLayouts()
-        updateLayout()
     }
 
 
@@ -76,11 +114,11 @@ class GameboardActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        if(singlePlayer){
+        if (singlePlayer) {
             val score = game.scorePlayerOne.value ?: 0
 
             val sharedPreferences = getSharedPreferences("scores", Context.MODE_PRIVATE)
-            if(sharedPreferences != null){
+            if (sharedPreferences != null) {
                 val score1 = sharedPreferences.getInt("score1", 0)
                 val score2 = sharedPreferences.getInt("score2", 0)
                 val score3 = sharedPreferences.getInt("score3", 0)
@@ -90,7 +128,7 @@ class GameboardActivity : AppCompatActivity() {
                 val scores = mutableListOf<Int>(score1, score2, score3, score4, score5, score)
                 scores.sortDescending()
 
-                with(sharedPreferences.edit()){
+                with(sharedPreferences.edit()) {
                     putInt("score1", scores[0])
                     putInt("score2", scores[1])
                     putInt("score3", scores[2])
@@ -105,10 +143,20 @@ class GameboardActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        CustomDialogGenerator.createCustomDialog(this, "Czy chcesz wyjść z gry?", "Tak", "Nie"){
+        CustomDialogGenerator.createCustomDialog(this, "Czy chcesz wyjść z gry?", "Tak", "Nie") {
             gameViewModel.setClosedGame(true)
             super.onBackPressed()
         }
+    }
+
+    private fun observeScores(){
+        game.scorePlayerOne.observe(this, Observer {
+            tvScorePlayerOne.text = it?.toString() ?: "0"
+        })
+
+        game.scorePlayerTwo.observe(this, Observer {
+            tvScorePlayerTwo.text = it?.toString() ?: "0"
+        })
     }
 
     private fun createLayouts() {
@@ -142,9 +190,21 @@ class GameboardActivity : AppCompatActivity() {
                 }
 
                 imageView.setOnClickListener {
-                    val moveOutput = game.currentGameboard.move(i, j)
-                    Log.d(TAG, moveOutput.toString())
-                    handleOutput(moveOutput, imageView)
+                    if(onlineGame){
+                        if(game.move == onlineGameViewModel.myPlayerNumber) {
+                            val moveOutput = game.currentGameboard.move(i, j)
+                            Log.d(TAG, moveOutput.toString())
+                            handleOnlineOutput(moveOutput, imageView)
+                        } else {
+                            Toast.makeText(applicationContext, "Poczekaj na ruch przeciwnika", Toast.LENGTH_SHORT).show()
+                        }
+                    }else {
+                        val moveOutput = game.currentGameboard.move(i, j)
+                        Log.d(TAG, moveOutput.toString())
+                        handleOutput(moveOutput, imageView)
+                    }
+
+
                 }
                 layoutBoard[i].add(imageView)
                 tableRow.addView(imageView)
@@ -161,21 +221,63 @@ class GameboardActivity : AppCompatActivity() {
 
     }
 
-    private fun handleOutput(moveOutput: MoveOutput, imageView: ImageView){
+    private fun handleOnlineOutput(moveOutput: MoveOutput, imageView: ImageView){
+
         when (moveOutput) {
             MoveOutput.CROSS_MOVED -> {
-                imageView.setImageResource(R.drawable.cross)}
+                imageView.setImageResource(R.drawable.cross)
+            }
             MoveOutput.CIRCLE_MOVED -> {
                 imageView.setImageResource(R.drawable.circle)
-                if(singlePlayer){
+            }
+            MoveOutput.CROSS_WIN -> {
+                imageView.setImageResource(R.drawable.cross)
+                Toast.makeText(this, "Krzyżyk wygrywa", Toast.LENGTH_SHORT).show()
+                if(onlineGameViewModel.myPlayerNumber == 1)
+                    game.playerOneWon()
+                else
+                    game.playerTwoWon()
+                startNewGame()
+            }
+            MoveOutput.CIRCLE_WIN -> {
+                imageView.setImageResource(R.drawable.circle)
+                Toast.makeText(this, "Kółko wygrywa", Toast.LENGTH_SHORT).show()
+                if(onlineGameViewModel.myPlayerNumber == 1)
+                    game.playerOneWon()
+                else
+                    game.playerTwoWon()
+                startNewGame()
+            }
+            MoveOutput.DRAW -> {
+                imageView.setBackgroundColor(R.drawable.cross)
+                Toast.makeText(this, "Remis", Toast.LENGTH_SHORT).show()
+                game.draw()
+                startNewGame()
+            }
+            else -> {
+
+            }
+        }
+        game.move = if(onlineGameViewModel.myPlayerNumber == 1) 2 else 1
+        onlineGameViewModel.saveGame(game)
+    }
+
+    private fun handleOutput(moveOutput: MoveOutput, imageView: ImageView) {
+        when (moveOutput) {
+            MoveOutput.CROSS_MOVED -> {
+                imageView.setImageResource(R.drawable.cross)
+            }
+            MoveOutput.CIRCLE_MOVED -> {
+                imageView.setImageResource(R.drawable.circle)
+                if (singlePlayer) {
                     do {
-                    val x = Random.nextInt(0, game.currentGameboard.BOARD_SIZE - 1)
-                    val y = Random.nextInt(0, game.currentGameboard.BOARD_SIZE - 1)
+                        val x = Random.nextInt(0, game.currentGameboard.BOARD_SIZE - 1)
+                        val y = Random.nextInt(0, game.currentGameboard.BOARD_SIZE - 1)
                         val moveOut = game.currentGameboard.move(x, y)
-                        Log.d(TAG,"Bot moved: $moveOut")
-                        if(moveOut != MoveOutput.DISALLOWED_HERE)
+                        Log.d(TAG, "Bot moved: $moveOut")
+                        if (moveOut != MoveOutput.DISALLOWED_HERE)
                             handleOutput(moveOut, layoutBoard[x][y])
-                    }while (moveOut == MoveOutput.DISALLOWED_HERE)
+                    } while (moveOut == MoveOutput.DISALLOWED_HERE)
                 }
 
             }
@@ -203,15 +305,15 @@ class GameboardActivity : AppCompatActivity() {
         }
     }
 
-    private fun startNewGame(){
+    private fun startNewGame() {
         game.start()
         updateLayout()
     }
 
     private fun updateLayout() {
         for (i in 0 until layoutBoard.size) {
-            for (j in 0 until layoutBoard[i].size){
-                when(game.currentGameboard.board[i][j]){
+            for (j in 0 until layoutBoard[i].size) {
+                when (game.currentGameboard.board[i][j]) {
                     Sign.CROSS -> layoutBoard[i][j].setImageResource(R.drawable.cross)
                     Sign.CIRCLE -> layoutBoard[i][j].setImageResource(R.drawable.circle)
                     Sign.NOTHING -> layoutBoard[i][j].setImageDrawable(null)

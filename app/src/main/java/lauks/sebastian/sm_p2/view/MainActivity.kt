@@ -36,6 +36,12 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
+        btOnline.setOnClickListener {
+            val intent = Intent(this, GameboardActivity::class.java)
+            intent.putExtra("onlineGame", true)
+            startActivity(intent)
+        }
+
         btScoreBoard.setOnClickListener {
             val intent = Intent(this, ScoreboardActivity::class.java)
             startActivity(intent)

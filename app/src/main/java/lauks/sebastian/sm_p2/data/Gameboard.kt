@@ -12,6 +12,7 @@ class Gameboard {
     val BOARD_SIZE = 10
     val SIGNS_TO_WIN = 5
     val board: MutableList<MutableList<Sign>> = mutableListOf()
+    var onlineId: String = ""
 
     init {
         for (i in 0 until BOARD_SIZE) {

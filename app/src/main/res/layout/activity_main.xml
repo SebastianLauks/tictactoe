@@ -18,6 +18,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Tryb wieloosobowy"/>
+
+    <Button
+        android:id="@+id/btOnline"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tryb online"/>
+
     <Button
         android:id="@+id/btScoreBoard"
         android:layout_width="match_parent"

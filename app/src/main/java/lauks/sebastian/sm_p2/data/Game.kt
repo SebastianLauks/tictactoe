@@ -12,8 +12,11 @@ class Game{
     val scorePlayerTwo: MutableLiveData<Int> = MutableLiveData(0)
 
     val gameboards: MutableList<Gameboard> = mutableListOf()
-    lateinit var currentGameboard: Gameboard
+    var currentGameboard: Gameboard = Gameboard()
     var isGamePlaying = false
+    var onlineId: String = ""
+    var move: Int = 2
+    var areTwoPlayers: Boolean = false
 
     fun start() {
         currentGameboard = Gameboard()
