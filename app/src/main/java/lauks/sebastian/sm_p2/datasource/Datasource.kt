@@ -22,10 +22,13 @@ class Datasource {
 
     val gamesRef = database.getReference("games")
     val gameBoardsRef = database.getReference("gameboards")
+    val bestRef = database.getReference("best")
+
 
     val gamesWithOnePlayer = MutableLiveData<MutableList<GameDs>>()
     val gameboardLD = MutableLiveData<Gameboard>()
     val gameLD = MutableLiveData<Game>()
+    val bestFiveLD = MutableLiveData<List<Long>>()
 
     fun saveGame(game: Game) {
         Log.d(TAG, "Save game")
@@ -56,6 +59,10 @@ class Datasource {
 
     }
 
+    fun saveGameAreTwoPlayers(gameId: String, areTwoPlayers: Boolean){
+        gamesRef.child(gameId).child("areTwoPlayers").setValue(areTwoPlayers)
+    }
+
     fun saveGameBoard(gameBoard: Gameboard, gameId: String): String {
 
         val gameBoardDs = Converter().gameboardToGameboardDs(gameBoard, gameId)
@@ -66,7 +73,7 @@ class Datasource {
             gameBoardsRef.child(id!!).setValue(gameBoardDs)
             gameBoard.onlineId = gameBoardDs.id
             gameboardLD.value = gameBoard
-        }else {
+        } else {
             gameBoardsRef.child(gameBoardDs.id).setValue(gameBoardDs)
         }
         gameboardLD.value = gameBoard
@@ -81,8 +88,8 @@ class Datasource {
             }
 
             override fun onDataChange(snapshot: DataSnapshot) {
-                var gamesMap: HashMap<String, HashMap<String,*>> = hashMapOf()
-                if(snapshot.value != null)
+                var gamesMap: HashMap<String, HashMap<String, *>> = hashMapOf()
+                if (snapshot.value != null)
                     gamesMap = snapshot.value as HashMap<String, HashMap<String, *>>
                 val games = mutableListOf<GameDs>()
 
@@ -115,48 +122,59 @@ class Datasource {
                 }
 
                 override fun onDataChange(snapshot: DataSnapshot) {
-                    val gamesMap = snapshot.value as HashMap<String, HashMap<String, *>>
+                    var gamesMap: HashMap<String, HashMap<String, *>> = hashMapOf()
+                    if (snapshot.value != null) {
+                        gamesMap = snapshot.value as HashMap<String, HashMap<String, *>>
 
-                    var remoteGame = GameDs("", false, "-1", 1, 0, 0, false)
-                    gamesMap.forEach { t, u ->
-                        remoteGame = GameDs(
-                            u["id"] as String,
-                            u["areTwoPlayers"] as Boolean,
-                            u["gameboardId"] as String,
-                            u["move"] as Long,
-                            u["scorePlayerOne"] as Long,
-                            u["scorePlayerTwo"] as Long,
-                            u["gamePlaying"] as Boolean
-                        )
-                    }
 
-                    gameBoardsRef.orderByKey().equalTo(remoteGame.gameboardId)
-                        .addListenerForSingleValueEvent(object : ValueEventListener {
-                            override fun onCancelled(error: DatabaseError) {
-                                Log.d(TAG,error.toString())
-                            }
+                        var remoteGame = GameDs("", false, "-1", 1, 0, 0, false)
+                        gamesMap.forEach { t, u ->
+                            remoteGame = GameDs(
+                                u["id"] as String,
+                                u["areTwoPlayers"] as Boolean,
+                                u["gameboardId"] as String,
+                                u["move"] as Long,
+                                u["scorePlayerOne"] as Long,
+                                u["scorePlayerTwo"] as Long,
+                                u["gamePlaying"] as Boolean
+                            )
+                        }
 
-                            override fun onDataChange(snapshot: DataSnapshot) {
-                                var gamesMap :  HashMap<String, HashMap<String, *>> = hashMapOf()
-                                if(snapshot.value != null)
-                                    gamesMap = snapshot.value as HashMap<String, HashMap<String, *>>
-
-                                var remoteGameboard = GameboardDs("", "", mutableListOf())
-                                gamesMap.forEach { t, u ->
-                                    remoteGameboard = GameboardDs(
-                                        u["id"] as String,
-                                        u["gameId"] as String,
-                                        u["board"] as MutableList<MutableList<Long>>
-                                    )
+                        gameBoardsRef.orderByKey().equalTo(remoteGame.gameboardId)
+                            .addListenerForSingleValueEvent(object : ValueEventListener {
+                                override fun onCancelled(error: DatabaseError) {
+                                    Log.d(TAG, error.toString())
                                 }
-                                gameboardLD.value = Converter().gameboardDsToGameboard(remoteGameboard)
-                                gameLD.value = Converter().gameDsToGame(remoteGame, remoteGameboard)
-                            }
-                        })
 
+                                override fun onDataChange(snapshot: DataSnapshot) {
+                                    var gamesMap: HashMap<String, HashMap<String, *>> = hashMapOf()
+                                    if (snapshot.value != null) {
+                                        gamesMap =
+                                            snapshot.value as HashMap<String, HashMap<String, *>>
 
+                                        var remoteGameboard = GameboardDs("", "", mutableListOf())
+                                        gamesMap.forEach { t, u ->
+                                            remoteGameboard = GameboardDs(
+                                                u["id"] as String,
+                                                u["gameId"] as String,
+                                                u["board"] as MutableList<MutableList<Long>>
+                                            )
+                                        }
+                                        gameboardLD.value =
+                                            Converter().gameboardDsToGameboard(remoteGameboard)
+                                        gameLD.value =
+                                            Converter().gameDsToGame(remoteGame, remoteGameboard)
+                                    }
+                                }
+                            })
+
+                    }
                 }
             })
+    }
+
+    fun deleteGame(id: String) {
+        gamesRef.child(id).removeValue()
     }
 
     fun observeGameboard(id: String) {
@@ -182,38 +200,42 @@ class Datasource {
             })
     }
 
-    fun move(myPlayerNumber: Int, game: GameDs, gameboardDs: GameboardDs) {
-        gamesRef.orderByKey().equalTo(game.id)
-            .addListenerForSingleValueEvent(object : ValueEventListener {
-                override fun onCancelled(error: DatabaseError) {
-                    TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-                }
+    fun getBestFive(){
+        bestRef.addValueEventListener(object : ValueEventListener{
+            override fun onCancelled(error: DatabaseError) {
+                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
 
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    val gamesMap = snapshot.value as HashMap<String, HashMap<String, *>>
-
-                    var remoteGame = GameDs("", false, "-1", 1, 0, 0, false)
-                    gamesMap.forEach { t, u ->
-                        remoteGame = GameDs(
-                            u["id"] as String,
-                            u["areTwoPlayers"] as Boolean,
-                            u["gameboardId"] as String,
-                            u["move"] as Long,
-                            u["scorePlayerOne"] as Long,
-                            u["scorePlayerTwo"] as Long,
-                            u["gamePlaying"] as Boolean
-                        )
+            override fun onDataChange(snapshot: DataSnapshot) {
+                    if(snapshot.value != null){
+                        val list = snapshot.value as List<Long>
+                        bestFiveLD.value = list
+                    }else {
+                        bestFiveLD.value = listOf()
                     }
+            }
 
-                    if (remoteGame.move.toInt() == myPlayerNumber) {
-                        gameBoardsRef.child(gameboardDs.id).setValue(gameboardDs)
-                            .addOnSuccessListener {
-                                gamesRef.child(game.id).child("move")
-                                    .setValue(if (myPlayerNumber == 1) 2 else 1)
-                            }
-                    }
+        })
+    }
+
+    fun saveBestFive(one: Long, two: Long){
+        bestRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onCancelled(error: DatabaseError) {
+                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun onDataChange(snapshot: DataSnapshot) {
+                var list = mutableListOf<Long>()
+                if (snapshot.value != null) {
+                    list = snapshot.value as MutableList<Long>
+
                 }
+                list.add(one)
+                list.add(two)
+                list.sortDescending()
+                bestRef.setValue(list.take(5))
 
-            })
+            }
+        })
     }
 }

@@ -11,6 +11,7 @@ import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import kotlinx.android.synthetic.main.activity_gameboard.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import lauks.sebastian.sm_p2.R
 import lauks.sebastian.sm_p2.data.Game
@@ -54,6 +55,7 @@ class GameboardActivity : AppCompatActivity() {
 
         gameViewModel = ViewModelProvider(this).get(GameViewModel::class.java)
         onlineGameViewModel = ViewModelProvider(this).get(OnlineGameViewModel::class.java)
+        onlineGameViewModel.myPlayerNumber = gameViewModel.getMyPlayerNumber()
 
         singlePlayer = (intent.extras?.get("singlePlayer") ?: false) as Boolean
         onlineGame = (intent.extras?.get("onlineGame")?: false) as Boolean
@@ -73,26 +75,38 @@ class GameboardActivity : AppCompatActivity() {
             updateLayout()
         }else {
 
-            onlineGameViewModel.getGamesWithOnePlayer()
-            onlineGameViewModel.gamesWithOnePlayer().observe(this, Observer {
-                if(it.isNullOrEmpty()) {
-                    Log.d(TAG,"HERE")
-                    onlineGameViewModel.saveGame(Game())
-                    onlineGameViewModel.myPlayerNumber = 1
-                }else {
-                    Log.d(TAG,"HERE2")
-                    val game = it.first()
-                    onlineGameViewModel.myPlayerNumber = 2
-                    game.areTwoPlayers = true
-                    onlineGameViewModel.observeGame(game.id)
-                }
-            })
+            game = gameViewModel.getGame()
+            if(game.onlineId == "" || gameViewModel.getClosedGame()) {
+                    gameViewModel.setClosedGame(false)
+                    game = Game()
+                    onlineGameViewModel.getGamesWithOnePlayer()
+                    onlineGameViewModel.gamesWithOnePlayer().observe(this, Observer {
+                        if(it.isNullOrEmpty()) {
+                            onlineGameViewModel.saveGame(Game())
+                            onlineGameViewModel.myPlayerNumber = 1
+                        }else {
+                            val game = it.first()
+                            onlineGameViewModel.myPlayerNumber = 2
+                            game.areTwoPlayers = true
+                            onlineGameViewModel.saveGameAreTwoPlayers(game.id, true)
+                            onlineGameViewModel.observeGame(game.id)
+                        }
+                    })
+            }
+            else {
+                    onlineGameViewModel.observeGame(game.onlineId)
+            }
+            if (!game.isGamePlaying) game.start()
+
 
             onlineGameViewModel.getGameLD().observe(this, Observer {
                 if(it != null){
                     game = it
-                    tvScorePlayerOne.text = it.scorePlayerOne.value.toString()
-                    tvScorePlayerTwo.text = it.scorePlayerTwo.value.toString()
+                    tvScorePlayerOne.text = game.scorePlayerOne.value.toString()
+                    tvScorePlayerTwo.text = game.scorePlayerTwo.value.toString()
+                    if(!game.areTwoPlayers){
+                        onlineGameViewModel.myPlayerNumber = 1
+                    }
                     if(!createdLayouts) {
                         createLayouts()
                         createdLayouts = true
@@ -110,6 +124,7 @@ class GameboardActivity : AppCompatActivity() {
 
     override fun onStop() {
         gameViewModel.saveGame(game)
+        gameViewModel.saveMyPlayerNumber(onlineGameViewModel.myPlayerNumber)
         super.onStop()
     }
 
@@ -144,8 +159,20 @@ class GameboardActivity : AppCompatActivity() {
 
     override fun onBackPressed() {
         CustomDialogGenerator.createCustomDialog(this, "Czy chcesz wyjść z gry?", "Tak", "Nie") {
-            gameViewModel.setClosedGame(true)
-            super.onBackPressed()
+
+            lifecycleScope.launch {
+                if(onlineGame && !game.areTwoPlayers){
+                    onlineGameViewModel.deleteGame(game.onlineId)
+                    onlineGameViewModel.saveBestFive(game.scorePlayerOne.value?.toLong() ?: 0, game.scorePlayerTwo.value?.toLong() ?: 0)
+                }else if(onlineGame && game.areTwoPlayers){
+                    onlineGameViewModel.saveGameAreTwoPlayers(game.onlineId, false)
+                }
+
+                delay(1000)
+
+                gameViewModel.setClosedGame(true)
+                super.onBackPressed()
+            }
         }
     }
 
@@ -238,6 +265,7 @@ class GameboardActivity : AppCompatActivity() {
                 else
                     game.playerTwoWon()
                 startNewGame()
+
             }
             MoveOutput.CIRCLE_WIN -> {
                 imageView.setImageResource(R.drawable.circle)
@@ -247,6 +275,7 @@ class GameboardActivity : AppCompatActivity() {
                 else
                     game.playerTwoWon()
                 startNewGame()
+
             }
             MoveOutput.DRAW -> {
                 imageView.setBackgroundColor(R.drawable.cross)

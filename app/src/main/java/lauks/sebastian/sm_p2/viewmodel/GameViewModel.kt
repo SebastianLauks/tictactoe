@@ -20,4 +20,9 @@ class GameViewModel: ViewModel() {
 
     fun getGame() = gameRepository.getGame()
     fun saveGame(game: Game) =  gameRepository.saveGame(game)
+
+    fun saveMyPlayerNumber(n: Int) {
+        gameRepository.myPlayerNumber = n
+    }
+    fun getMyPlayerNumber() = gameRepository.myPlayerNumber
 }

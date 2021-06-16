@@ -9,6 +9,8 @@ class GameRepository private constructor(){
 
     private var game = Game()
 
+    var myPlayerNumber = -1
+
     var closedGame = false
 
     fun getGame() = game
